@@ -296,7 +296,7 @@ export default function HomePage() {
                     className="fixed inset-0 z-40" 
                     onClick={() => setModeDropdownOpen(false)}
                   />
-                  <div className="absolute top-full mt-2 w-full bg-[#111111] border border-gray-800 rounded-2xl shadow-lg py-2 z-50">
+                  <div className="absolute max-h-60 overflow-auto top-full mt-2 w-full bg-[#111111] border border-gray-800 rounded-2xl shadow-lg py-2 z-50">
                     {advisorModes.map((mode) => (
                       <button
                         key={mode.id}
