@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { useRouter } from 'next/navigation';
 
 type OutputSection = {
@@ -28,6 +29,7 @@ export default function ChatInterface({ selectedMode, disabled = false, onFirstM
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const router = useRouter();
+  const { currentOrg, canCreateAnalysis } = useOrganization();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -44,6 +46,20 @@ export default function ChatInterface({ selectedMode, disabled = false, onFirstM
     setInput('');
     setLoading(true);
     setError(null);
+
+    // Check permissions
+    if (!canCreateAnalysis()) {
+      setError('You do not have permission to create analyses. Contact your organization admin.');
+      setLoading(false);
+      return;
+    }
+
+    // Check organization
+    if (!currentOrg) {
+      setError('No organization selected. Please select or create an organization.');
+      setLoading(false);
+      return;
+    }
 
     // Trigger collapse to dropdown on first message
     if (messages.length === 0 && onFirstMessage) {
@@ -74,6 +90,7 @@ export default function ChatInterface({ selectedMode, disabled = false, onFirstM
         body: JSON.stringify({
           advisor_mode_id: selectedMode,
           prompt: currentInput,
+          organization_id: currentOrg.id,
         }),
       });
 

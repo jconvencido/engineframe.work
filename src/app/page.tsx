@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import AuthModal from '@/components/AuthModal';
 import ChatInterface from '@/components/ChatInterface';
 import { supabaseBrowser } from '@/lib/supabaseClient';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import type { User } from '@supabase/supabase-js';
 
 export default function HomePage() {
@@ -13,10 +14,13 @@ export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [orgMenuOpen, setOrgMenuOpen] = useState(false);
   const [selectedAdvisorMode, setSelectedAdvisorMode] = useState<string | null>(null);
   const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [hasStartedChat, setHasStartedChat] = useState(false);
+  
+  const { currentOrg, userOrgs, userRole, switchOrganization, canManageTeam, canCreateAnalysis } = useOrganization();
 
   const advisorModes = [
     { id: 'sales', name: 'Sales', description: 'Strategies for boosting sales performance' },
@@ -146,15 +150,72 @@ export default function HomePage() {
         {/* Navigation */}
         <nav className="max-w-6xl mx-auto w-full px-8 py-6 flex items-center justify-between">
           <div className="flex items-center gap-8">
+            {/* Organization Switcher */}
+            <div className="relative">
+              <button
+                onClick={() => setOrgMenuOpen(!orgMenuOpen)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#111111] border border-gray-800 hover:border-gray-700 transition-colors text-sm font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <span className="max-w-32 truncate">{currentOrg?.name || 'Select Org'}</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {orgMenuOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setOrgMenuOpen(false)}
+                  />
+                  <div className="absolute left-0 mt-2 w-64 bg-[#111111] border border-gray-800 rounded-lg shadow-lg py-2 z-50">
+                    <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase">
+                      Your Organizations
+                    </div>
+                    {userOrgs.map(org => (
+                      <button
+                        key={org.id}
+                        onClick={() => {
+                          switchOrganization(org.id);
+                          setOrgMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-[#0a0a0a] transition-colors flex items-center justify-between ${currentOrg?.id === org.id ? 'bg-[#0a0a0a] text-[#4169E1]' : ''}`}
+                      >
+                        <span className="truncate">{org.name}</span>
+                        {currentOrg?.id === org.id && (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                    <div className="border-t border-gray-800 my-2"></div>
+                    <Link
+                      href="/organization/create"
+                      className="block w-full text-left px-4 py-2 text-sm hover:bg-[#0a0a0a] transition-colors text-[#4169E1]"
+                      onClick={() => setOrgMenuOpen(false)}
+                    >
+                      + Create Organization
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
+
             <Link href="/" className="text-sm font-medium hover:text-gray-300 transition-colors">
               Features
             </Link>
             <Link href="/" className="text-sm font-medium hover:text-gray-300 transition-colors">
               Pricing
             </Link>
-            <Link href="/" className="text-sm font-medium hover:text-gray-300 transition-colors">
-              Docs
-            </Link>
+            {canManageTeam() && (
+              <Link href="/organization/team" className="text-sm font-medium hover:text-gray-300 transition-colors">
+                Team
+              </Link>
+            )}
           </div>
           <div className="relative">
             <button

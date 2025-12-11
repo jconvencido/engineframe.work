@@ -14,16 +14,16 @@ export async function POST(req: Request) {
 
     const token = authHeader.slice('bearer '.length);
 
-    const { advisor_mode_id, prompt } = await req.json();
+    const { advisor_mode_id, prompt, organization_id } = await req.json();
 
-    if (!advisor_mode_id || !prompt) {
-      return new NextResponse('advisor_mode_id and prompt are required', {
+    if (!advisor_mode_id || !prompt || !organization_id) {
+      return new NextResponse('advisor_mode_id, prompt, and organization_id are required', {
         status: 400,
       });
     }
 
     // Create client with the user's auth context
-    // This pattern is the same one recommended for Edge Functions / SSR. :contentReference[oaicite:1]{index=1}
+    // This pattern is the same one recommended for Edge Functions / SSR. :contentReference[oaicite:0]{index=0}
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
@@ -48,11 +48,24 @@ export async function POST(req: Request) {
 
     const userId = user.id;
 
+    // Verify user has permission in organization
+    const { data: membership } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', organization_id)
+      .eq('user_id', userId)
+      .single();
+
+    if (!membership || !['owner', 'admin', 'member'].includes(membership.role)) {
+      return new NextResponse('You do not have permission to create analyses in this organization', { status: 403 });
+    }
+
     // Fetch mode by slug (since frontend sends slug like 'sales', 'marketing')
     const { data: mode, error: modeError } = await supabase
       .from('advisor_modes')
       .select('*')
       .eq('slug', advisor_mode_id)
+      .or(`is_global.eq.true,organization_id.eq.${organization_id}`)
       .maybeSingle();
 
     if (modeError || !mode) {
@@ -87,6 +100,7 @@ export async function POST(req: Request) {
       .insert({
         user_id: userId,
         advisor_mode_id: modeUuid,
+        organization_id: organization_id,
         prompt,
       })
       .select()
