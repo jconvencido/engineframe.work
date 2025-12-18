@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabaseClient';
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
 
@@ -18,18 +18,8 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.replace('Bearer ', '');
     
-    // Create a Supabase client with the user's session token
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      }
-    );
+    // Create a Supabase server client
+    const supabase = await createServerClient();
 
     // Verify the user
     const { data: { user }, error: authError } = await supabase.auth.getUser();

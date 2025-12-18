@@ -1,5 +1,5 @@
 // app/auth/callback/route.ts
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabaseClient';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -8,10 +8,7 @@ export async function GET(request: NextRequest) {
   const origin = requestUrl.origin;
 
   if (code) {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = await createServerClient();
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     

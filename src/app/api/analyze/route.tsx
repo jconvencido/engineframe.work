@@ -1,9 +1,6 @@
 // app/api/analyze/route.ts
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { createServerClient } from '@/lib/supabaseClient';
 
 export async function POST(req: Request) {
   try {
@@ -22,18 +19,8 @@ export async function POST(req: Request) {
       });
     }
 
-    // Create client with the user's auth context
-    // This pattern is the same one recommended for Edge Functions / SSR. :contentReference[oaicite:0]{index=0}
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-      auth: {
-        persistSession: false,
-      },
-    });
+    // Create server client
+    const supabase = await createServerClient();
 
     // Get user from the token explicitly
     const {
