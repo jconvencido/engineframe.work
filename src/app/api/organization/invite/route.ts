@@ -77,11 +77,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-    } else {
-      return NextResponse.json(
-        { error: 'The invited email does not belong to any registered user' },
-        { status: 400 }
-      );
     }
 
     // Delete any existing invitations for this email/org combination

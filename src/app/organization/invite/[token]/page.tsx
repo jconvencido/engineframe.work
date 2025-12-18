@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { use } from 'react';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 interface InvitationData {
   id: string;
@@ -19,6 +20,7 @@ interface InvitationData {
 export default function AcceptInvitationPage({ params }: { params: Promise<{ token: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  const { refreshOrganizations } = useOrganization();
   const [invitation, setInvitation] = useState<InvitationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
@@ -115,6 +117,9 @@ export default function AcceptInvitationPage({ params }: { params: Promise<{ tok
 
       // Set as current org
       localStorage.setItem('currentOrgId', invitation.organization_id);
+
+      // Refresh organizations to update the dropdown
+      await refreshOrganizations();
 
       // Redirect to app
       router.push('/');

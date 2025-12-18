@@ -4,9 +4,11 @@ import { useState, FormEvent } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 export default function CreateOrganizationPage() {
   const router = useRouter();
+  const { refreshOrganizations } = useOrganization();
   const [orgName, setOrgName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,9 @@ export default function CreateOrganizationPage() {
 
       // Set as current org
       localStorage.setItem('currentOrgId', org.id);
+      
+      // Refresh organizations to update the dropdown
+      await refreshOrganizations();
       
       router.push('/');
     } catch (err: any) {
