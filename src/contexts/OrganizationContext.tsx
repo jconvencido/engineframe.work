@@ -62,7 +62,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         // Get current org from localStorage or default to first
         const storedOrgId = localStorage.getItem('currentOrgId');
         const currentOrgData = storedOrgId 
-          ? orgs.find(org => org.id === storedOrgId) || orgs[0]
+          ? orgs.find((org: Organization) => org.id === storedOrgId) || orgs[0]
           : orgs[0];
 
         setCurrentOrg(currentOrgData);
@@ -98,9 +98,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         .from('organization_members')
         .select('role')
         .eq('organization_id', orgId)
-        .eq('user_id', supabaseBrowser.auth.getUser().then(u => u.data.user?.id))
+        .eq('user_id', supabaseBrowser.auth.getUser().then((u: any) => u.data.user?.id))
         .single()
-        .then(({ data }) => {
+        .then(({ data }: { data: any }) => {
           if (data) setUserRole(data.role);
         });
       
