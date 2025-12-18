@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { OrganizationProvider } from "@/contexts/OrganizationContext";
+import { Providers } from "@/components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,9 +26,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-slate-950 text-slate-50">
-        <OrganizationProvider>
+        <Providers>
           {children}
-        </OrganizationProvider>
+        </Providers>
       </body>
     </html>
   );
