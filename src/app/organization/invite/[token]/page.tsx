@@ -38,13 +38,21 @@ export default function AcceptInvitationPage({ params }: { params: Promise<{ tok
           email,
           role,
           expires_at,
-          organizations!inner (name)
+          organizations (name)
         `)
         .eq('token', resolvedParams.token)
         .is('accepted_at', null)
         .single();
 
-      if (error || !data) {
+      console.log('Invitation query result:', { data, error });
+
+      if (error) {
+        console.error('Invitation query error:', error);
+        setError('Invalid or expired invitation');
+        return;
+      }
+
+      if (!data) {
         setError('Invalid or expired invitation');
         return;
       }
@@ -57,6 +65,7 @@ export default function AcceptInvitationPage({ params }: { params: Promise<{ tok
 
       setInvitation(data as unknown as InvitationData);
     } catch (error) {
+      console.error('Exception loading invitation:', error);
       setError('Failed to load invitation');
     } finally {
       setLoading(false);
@@ -73,8 +82,8 @@ export default function AcceptInvitationPage({ params }: { params: Promise<{ tok
       const { data: { session } } = await supabaseBrowser.auth.getSession();
       
       if (!session) {
-        // Redirect to signup/login with invitation token
-        router.push(`/?invite=${resolvedParams.token}`);
+        // Redirect to login with invitation token so they can come back after login
+        router.push(`/login?redirectTo=${encodeURIComponent(`/organization/invite/${resolvedParams.token}`)}`);
         return;
       }
 

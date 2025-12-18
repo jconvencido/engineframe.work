@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { sendInvitationEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -123,15 +124,64 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: inviteError.message }, { status: 500 });
     }
 
-    // TODO: Send invitation email
-    // For now, we'll just return the invitation link
+    // Generate invitation link
     const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/organization/invite/${inviteToken}`;
 
-    console.log('Invitation created:', {
-      email,
-      role,
-      inviteLink,
-    });
+    // Fetch organization details
+    const { data: orgData, error: orgError } = await supabase
+      .from('organizations')
+      .select('name')
+      .eq('id', organizationId)
+      .single();
+
+    if (orgError || !orgData) {
+      console.error('Error fetching organization:', orgError);
+      return NextResponse.json(
+        { error: 'Failed to fetch organization details' },
+        { status: 500 }
+      );
+    }
+
+    // Fetch inviter details
+    const { data: inviterData, error: inviterError } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('user_id', user.id)
+      .single();
+
+    if (inviterError || !inviterData) {
+      console.error('Error fetching inviter profile:', inviterError);
+      return NextResponse.json(
+        { error: 'Failed to fetch inviter details' },
+        { status: 500 }
+      );
+    }
+
+    // Send invitation email
+    try {
+      await sendInvitationEmail({
+        to: email,
+        organizationName: orgData.name,
+        inviterName: inviterData.full_name || inviterData.email,
+        inviterEmail: inviterData.email,
+        role: role,
+        inviteLink: inviteLink,
+        expiresAt: expiresAt,
+      });
+
+      console.log('Invitation email sent successfully to:', email);
+    } catch (emailError: any) {
+      console.error('Error sending invitation email:', emailError);
+      // Don't fail the request if email fails, but log it
+      // The invitation is still created in the database
+      return NextResponse.json({
+        success: true,
+        invitation,
+        inviteLink,
+        message: 'Invitation created but email failed to send. Please share the link manually.',
+        emailError: emailError.message,
+      });
+    }
 
     return NextResponse.json({
       success: true,

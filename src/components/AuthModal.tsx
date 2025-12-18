@@ -2,7 +2,7 @@
 
 import { FormEvent, useState, useEffect } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -13,6 +13,7 @@ interface AuthModalProps {
 
 export default function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthModalProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -163,8 +164,16 @@ export default function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthM
       return;
     }
     
+    // Close modal and redirect
     onClose();
-    router.push('/');
+    
+    // Check if there's a redirect URL in query params
+    const redirectTo = searchParams.get('redirectTo');
+    if (redirectTo) {
+      router.push(redirectTo);
+    } else {
+      router.push('/');
+    }
   };
 
   if (!isOpen) return null;

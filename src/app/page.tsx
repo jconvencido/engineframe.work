@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import AuthModal from '@/components/AuthModal';
 import ChatInterface from '@/components/ChatInterface';
 import { supabaseBrowser } from '@/lib/supabaseClient';
@@ -9,6 +10,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import type { User } from '@supabase/supabase-js';
 
 export default function HomePage() {
+  const searchParams = useSearchParams();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [user, setUser] = useState<User | null>(null);
@@ -80,6 +82,18 @@ export default function HomePage() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Check for modal parameter in URL
+  useEffect(() => {
+    const modal = searchParams.get('modal');
+    if (modal === 'login') {
+      setAuthMode('login');
+      setAuthModalOpen(true);
+    } else if (modal === 'signup') {
+      setAuthMode('signup');
+      setAuthModalOpen(true);
+    }
+  }, [searchParams]);
 
   // Check email verification
   const isEmailVerified = user?.email_confirmed_at != null;
