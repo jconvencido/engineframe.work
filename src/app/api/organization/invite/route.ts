@@ -2,17 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
-
 export async function POST(request: NextRequest) {
   try {
     const { organizationId, email, role } = await request.json();
@@ -24,19 +13,36 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    
+    // Create a Supabase client with the user's session token
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    );
 
+    // Verify the user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if user has permission to invite (owner or admin)
-    const { data: membership } = await supabaseAdmin
+    const { data: membership } = await supabase
       .from('organization_members')
       .select('role')
       .eq('organization_id', organizationId)
       .eq('user_id', user.id)
       .single();
+
+      console.log('Membership info:', membership);
 
     if (!membership || !['owner', 'admin'].includes(membership.role)) {
       return NextResponse.json(
@@ -45,30 +51,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user is already a member
-    const { data: existingMember } = await supabaseAdmin
-      .from('organization_members')
-      .select('id')
-      .eq('organization_id', organizationId)
-      .eq('user_id', user.id)
-      .single();
+    // Check if the invited email belongs to an existing member
+    // First get the user_id for the invited email
+    const { data: invitedUser } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('email', email)
+      .maybeSingle();
 
-    if (existingMember) {
+      console.log('Invited user info:', invitedUser);
+
+    if (invitedUser) {
+      // Check if this user is already a member
+      const { data: existingMember } = await supabase
+        .from('organization_members')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('user_id', invitedUser.user_id)
+        .maybeSingle();
+
+      if (existingMember) {
+        return NextResponse.json(
+          { error: 'User is already a member of this organization' },
+          { status: 400 }
+        );
+      }
+    } else {
       return NextResponse.json(
-        { error: 'User is already a member of this organization' },
+        { error: 'The invited email does not belong to any registered user' },
         { status: 400 }
       );
     }
 
     // Check if invitation already exists
-    const { data: existingInvite } = await supabaseAdmin
+    const { data: existingInvite } = await supabase
       .from('organization_invitations')
       .select('id')
       .eq('organization_id', organizationId)
       .eq('email', email)
       .is('accepted_at', null)
       .gt('expires_at', new Date().toISOString())
-      .single();
+      .maybeSingle();
 
     if (existingInvite) {
       return NextResponse.json(
@@ -83,7 +106,7 @@ export async function POST(request: NextRequest) {
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
     // Create invitation
-    const { data: invitation, error: inviteError } = await supabaseAdmin
+    const { data: invitation, error: inviteError } = await supabase
       .from('organization_invitations')
       .insert({
         organization_id: organizationId,

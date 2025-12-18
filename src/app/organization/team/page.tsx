@@ -50,33 +50,41 @@ export default function TeamManagementPage() {
 
     setLoading(true);
     try {
-      // Load members
-      const { data: membersData } = await supabaseBrowser
+      // Load members with their profile information including email
+      const { data: membersData, error: membersError } = await supabaseBrowser
         .from('organization_members')
         .select(`
           id,
           user_id,
           role,
-          joined_at,
-          profiles:user_id (full_name)
+          joined_at
         `)
         .eq('organization_id', currentOrg.id);
 
-      // Get user emails from auth.users
+      if (membersError) {
+        console.error('Error loading members:', membersError);
+      }
+
       if (membersData) {
-        const membersWithEmails = await Promise.all(
-          membersData.map(async (member: any) => {
-            const { data: { user } } = await supabaseBrowser.auth.admin.getUserById(member.user_id);
-            return {
-              ...member,
-              profiles: {
-                full_name: member.profiles?.full_name || 'Unknown',
-                email: user?.email || 'unknown@email.com',
-              },
-            };
-          })
-        );
-        setMembers(membersWithEmails);
+        // Fetch profiles separately
+        const userIds = membersData.map(m => m.user_id);
+        const { data: profilesData } = await supabaseBrowser
+          .from('profiles')
+          .select('user_id, full_name, email')
+          .in('user_id', userIds);
+
+        // Combine members with profiles
+        const formattedMembers = membersData.map((member: any) => {
+          const profile = profilesData?.find(p => p.user_id === member.user_id);
+          return {
+            ...member,
+            profiles: {
+              full_name: profile?.full_name || 'Unknown',
+              email: profile?.email || 'unknown@email.com',
+            },
+          };
+        });
+        setMembers(formattedMembers);
       }
 
       // Load pending invitations
@@ -110,9 +118,19 @@ export default function TeamManagementPage() {
     setInviting(true);
 
     try {
+      // Get the current session token
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+      
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
       const response = await fetch('/api/organization/invite', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           organizationId: currentOrg?.id,
           email: inviteEmail,
