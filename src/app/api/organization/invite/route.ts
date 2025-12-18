@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
 
+// Force dynamic rendering to prevent build-time execution
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const { organizationId, email, role } = await request.json();

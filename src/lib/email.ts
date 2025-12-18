@@ -2,7 +2,18 @@ import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { InvitationEmail } from '@/emails/invitation-email';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-load Resend to avoid build-time errors
+let resend: Resend | null = null;
+
+function getResendClient() {
+  if (!resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is not set');
+    }
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 export interface SendInvitationEmailParams {
   to: string;
@@ -35,7 +46,8 @@ export async function sendInvitationEmail({
       })
     );
 
-    const { data, error } = await resend.emails.send({
+    const resendClient = getResendClient();
+    const { data, error } = await resendClient.emails.send({
       from: 'Advisor GPT <onboarding@resend.dev>',
       to: [to],
       subject: `You're invited to join ${organizationName}`,
