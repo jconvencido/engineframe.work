@@ -84,22 +84,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if invitation already exists
-    const { data: existingInvite } = await supabase
+    // Delete any existing invitations for this email/org combination
+    // This handles expired, accepted, or cancelled invitations
+    await supabase
       .from('organization_invitations')
-      .select('id')
+      .delete()
       .eq('organization_id', organizationId)
-      .eq('email', email)
-      .is('accepted_at', null)
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle();
-
-    if (existingInvite) {
-      return NextResponse.json(
-        { error: 'An active invitation already exists for this email' },
-        { status: 400 }
-      );
-    }
+      .eq('email', email);
 
     // Generate invitation token
     const inviteToken = crypto.randomBytes(32).toString('hex');
