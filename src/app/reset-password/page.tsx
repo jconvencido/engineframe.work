@@ -1,11 +1,11 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useState, Suspense } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [password, setPassword] = useState('');
@@ -125,5 +125,17 @@ export default function ResetPasswordPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-gray-800 border-t-[#4169E1] rounded-full animate-spin"></div>
+      </div>
+    }>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

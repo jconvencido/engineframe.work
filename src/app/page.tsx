@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AuthModal from '@/components/AuthModal';
 import ChatInterface from '@/components/ChatInterface';
@@ -9,7 +9,7 @@ import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import type { User } from '@supabase/supabase-js';
 
-export default function HomePage() {
+function HomePageContent() {
   const searchParams = useSearchParams();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
@@ -501,5 +501,17 @@ export default function HomePage() {
         onSwitchMode={switchAuthMode}
       />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-gray-800 border-t-[#4169E1] rounded-full animate-spin"></div>
+      </div>
+    }>
+      <HomePageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState, useEffect } from 'react';
+import { FormEvent, useState, useEffect, Suspense } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -11,7 +11,7 @@ interface AuthModalProps {
   onSwitchMode: () => void;
 }
 
-export default function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthModalProps) {
+function AuthModalContent({ isOpen, onClose, mode, onSwitchMode }: AuthModalProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
@@ -436,5 +436,15 @@ export default function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthM
         </form>
       </div>
     </div>
+  );
+}
+
+export default function AuthModal(props: AuthModalProps) {
+  if (!props.isOpen) return null;
+  
+  return (
+    <Suspense fallback={null}>
+      <AuthModalContent {...props} />
+    </Suspense>
   );
 }
