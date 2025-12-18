@@ -67,7 +67,7 @@ export default function TeamManagementPage() {
 
       if (membersData) {
         // Fetch profiles separately
-        const userIds = membersData.map(m => m.user_id);
+        const userIds = membersData.map((m: any) => m.user_id);
         const { data: profilesData } = await supabaseBrowser
           .from('profiles')
           .select('user_id, full_name, email')
@@ -75,7 +75,7 @@ export default function TeamManagementPage() {
 
         // Combine members with profiles
         const formattedMembers = membersData.map((member: any) => {
-          const profile = profilesData?.find(p => p.user_id === member.user_id);
+          const profile = profilesData?.find((p: any) => p.user_id === member.user_id);
           return {
             ...member,
             profiles: {
