@@ -180,7 +180,7 @@ export default function ChatInterface({ selectedMode, disabled = false, onFirstM
           <button
             type="submit"
             disabled={!input.trim() || loading || disabled}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-[#4169E1] hover:bg-[#3557c7] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-[#4169E1] hover:bg-[#3557c7] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             aria-label="Send message"
           >
             {loading ? (

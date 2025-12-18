@@ -135,7 +135,7 @@ export default function HomePage() {
               </div>
               <button
                 onClick={handleSignOut}
-                className="w-full py-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-medium transition-colors"
+                className="w-full py-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-medium transition-colors cursor-pointer"
               >
                 Sign Out
               </button>
@@ -154,7 +154,7 @@ export default function HomePage() {
             <div className="relative">
               <button
                 onClick={() => setOrgMenuOpen(!orgMenuOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#111111] border border-gray-800 hover:border-gray-700 transition-colors text-sm font-medium"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#111111] border border-gray-800 hover:border-gray-700 transition-colors text-sm font-medium cursor-pointer"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -182,7 +182,7 @@ export default function HomePage() {
                           switchOrganization(org.id);
                           setOrgMenuOpen(false);
                         }}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-[#0a0a0a] transition-colors flex items-center justify-between ${currentOrg?.id === org.id ? 'bg-[#0a0a0a] text-[#4169E1]' : ''}`}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-[#0a0a0a] transition-colors flex items-center justify-between cursor-pointer ${currentOrg?.id === org.id ? 'bg-[#0a0a0a] text-[#4169E1]' : ''}`}
                       >
                         <span className="truncate">{org.name}</span>
                         {currentOrg?.id === org.id && (
@@ -220,7 +220,7 @@ export default function HomePage() {
           <div className="relative">
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-2 hover:text-gray-300 transition-colors text-sm font-medium"
+              className="flex items-center gap-2 hover:text-gray-300 transition-colors text-sm font-medium cursor-pointer"
             >
               <div className="w-7 h-7 rounded-full bg-[#4169E1] flex items-center justify-center text-xs font-medium">
                 {user.email?.[0].toUpperCase()}
@@ -248,7 +248,7 @@ export default function HomePage() {
                   </Link>
                   <button
                     onClick={handleSignOut}
-                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-[#0a0a0a] transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-[#0a0a0a] transition-colors cursor-pointer"
                   >
                     Sign out
                   </button>
@@ -283,7 +283,7 @@ export default function HomePage() {
               <button
                 onClick={goToPrevPage}
                 disabled={currentPage === 0}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 w-10 h-10 rounded-full bg-[#111111] border border-gray-800 flex items-center justify-center hover:border-[#4169E1] transition-all disabled:opacity-30 disabled:cursor-not-allowed z-10"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 w-10 h-10 rounded-full bg-[#111111] border border-gray-800 flex items-center justify-center hover:border-[#4169E1] transition-all disabled:opacity-30 disabled:cursor-not-allowed z-10 cursor-pointer"
                 aria-label="Previous page"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -296,7 +296,7 @@ export default function HomePage() {
                   <button
                     key={mode.id}
                     onClick={() => setSelectedAdvisorMode(mode.id)}
-                    className="bg-[#111111] border border-gray-800 rounded-2xl p-8 text-left hover:border-[#4169E1] hover:bg-[#111111]/80 transition-all"
+                    className="bg-[#111111] border border-gray-800 rounded-2xl p-8 text-left hover:border-[#4169E1] hover:bg-[#111111]/80 transition-all cursor-pointer"
                   >
                     <h3 className="text-2xl font-bold mb-3">{mode.name}</h3>
                     <p className="text-gray-400">{mode.description}</p>
@@ -307,7 +307,7 @@ export default function HomePage() {
               <button
                 onClick={goToNextPage}
                 disabled={currentPage === totalPages - 1}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 w-10 h-10 rounded-full bg-[#111111] border border-gray-800 flex items-center justify-center hover:border-[#4169E1] transition-all disabled:opacity-30 disabled:cursor-not-allowed z-10"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 w-10 h-10 rounded-full bg-[#111111] border border-gray-800 flex items-center justify-center hover:border-[#4169E1] transition-all disabled:opacity-30 disabled:cursor-not-allowed z-10 cursor-pointer"
                 aria-label="Next page"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -321,7 +321,7 @@ export default function HomePage() {
                   <button
                     key={index}
                     onClick={() => setCurrentPage(index)}
-                    className={`w-2 h-2 rounded-full transition-all ${
+                    className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
                       index === currentPage ? 'bg-[#4169E1] w-6' : 'bg-gray-800'
                     }`}
                     aria-label={`Go to page ${index + 1}`}
@@ -333,7 +333,7 @@ export default function HomePage() {
             <div className="max-w-md mx-auto relative">
               <button
                 onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
-                className="w-full bg-[#111111] border border-[#4169E1] rounded-2xl p-6 text-left flex items-center justify-between hover:bg-[#111111]/80 transition-all"
+                className="w-full bg-[#111111] border border-[#4169E1] rounded-2xl p-6 text-left flex items-center justify-between hover:bg-[#111111]/80 transition-all cursor-pointer"
               >
                 <div>
                   <div className="text-sm text-gray-400 mb-1">Selected Advisor Mode</div>
@@ -365,7 +365,7 @@ export default function HomePage() {
                           setSelectedAdvisorMode(mode.id);
                           setModeDropdownOpen(false);
                         }}
-                        className={`w-full text-left px-6 py-4 hover:bg-[#0a0a0a] transition-colors ${
+                        className={`w-full text-left px-6 py-4 hover:bg-[#0a0a0a] transition-colors cursor-pointer ${
                           selectedAdvisorMode === mode.id ? 'bg-[#4169E1]/10' : ''
                         }`}
                       >
@@ -410,7 +410,7 @@ export default function HomePage() {
         </div>
         <button
           onClick={openLoginModal}
-          className="text-sm font-medium hover:text-gray-300 transition-colors"
+          className="text-sm font-medium hover:text-gray-300 transition-colors cursor-pointer"
         >
           Sign In
         </button>
@@ -430,7 +430,7 @@ export default function HomePage() {
         </p>
         <button
           onClick={openSignupModal}
-          className="inline-block px-8 py-3 bg-[#4169E1] hover:bg-[#3557c7] text-white font-medium rounded-lg transition-colors"
+          className="inline-block px-8 py-3 bg-[#4169E1] hover:bg-[#3557c7] text-white font-medium rounded-lg transition-colors cursor-pointer"
         >
           Get Started
         </button>

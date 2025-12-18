@@ -181,7 +181,7 @@ export default function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthM
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors cursor-pointer"
           aria-label="Close modal"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -329,7 +329,7 @@ export default function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthM
                   // This will be handled by parent to switch to reset-password mode
                   setError(null);
                 }}
-                className="text-sm text-[#4169E1] hover:text-[#3557c7] transition-colors"
+                className="text-sm text-[#4169E1] hover:text-[#3557c7] transition-colors cursor-pointer"
               >
                 Forgot password?
               </button>
@@ -351,7 +351,7 @@ export default function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthM
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-lg bg-[#4169E1] hover:bg-[#3557c7] text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 rounded-lg bg-[#4169E1] hover:bg-[#3557c7] text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {loading 
               ? (mode === 'reset-password' ? 'Sending...' : mode === 'login' ? 'Signing in…' : 'Creating account…')
@@ -374,7 +374,7 @@ export default function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthM
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={loading}
-                className="w-full py-3 rounded-lg bg-white hover:bg-gray-100 text-gray-900 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                className="w-full py-3 rounded-lg bg-white hover:bg-gray-100 text-gray-900 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 cursor-pointer"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path
@@ -405,7 +405,7 @@ export default function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthM
               <button
                 type="button"
                 onClick={onSwitchMode}
-                className="text-[#4169E1] hover:text-[#3557c7] font-medium transition-colors"
+                className="text-[#4169E1] hover:text-[#3557c7] font-medium transition-colors cursor-pointer"
               >
                 {mode === 'login' ? 'Sign up' : 'Sign in'}
               </button>
@@ -418,7 +418,7 @@ export default function AuthModal({ isOpen, onClose, mode, onSwitchMode }: AuthM
               <button
                 type="button"
                 onClick={onSwitchMode}
-                className="text-[#4169E1] hover:text-[#3557c7] font-medium transition-colors"
+                className="text-[#4169E1] hover:text-[#3557c7] font-medium transition-colors cursor-pointer"
               >
                 Sign in
               </button>

@@ -246,7 +246,7 @@ export default function TeamManagementPage() {
             <button
               type="submit"
               disabled={inviting}
-              className="bg-[#4169E1] hover:bg-[#3559c7] text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50"
+              className="bg-[#4169E1] hover:bg-[#3559c7] text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
             >
               {inviting ? 'Inviting...' : 'Send Invite'}
             </button>

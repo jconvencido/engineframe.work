@@ -113,7 +113,7 @@ export default function CreateOrganizationPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#4169E1] hover:bg-[#3559c7] text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#4169E1] hover:bg-[#3559c7] text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {loading ? 'Creating...' : 'Create Organization'}
             </button>

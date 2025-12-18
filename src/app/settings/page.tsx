@@ -205,7 +205,7 @@ export default function SettingsPage() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-3 rounded-lg bg-[#4169E1] hover:bg-[#3557c7] text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 rounded-lg bg-[#4169E1] hover:bg-[#3557c7] text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
