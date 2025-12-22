@@ -21,31 +21,9 @@ function HomePageContent() {
   const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [hasStartedChat, setHasStartedChat] = useState(false);
+  const [advisorModes, setAdvisorModes] = useState<Array<{ id: string; name: string; description: string }>>([]);
   
   const { currentOrg, userOrgs, userRole, switchOrganization, canManageTeam, canCreateAnalysis } = useOrganization();
-
-  const advisorModes = [
-    { id: 'sales', name: 'Sales', description: 'Strategies for boosting sales performance' },
-    { id: 'marketing', name: 'Marketing', description: 'Insights to increase marketing impact' },
-    { id: 'startup', name: 'Startup', description: 'Guidance on launching new ventures' },
-    { id: 'enterprise', name: 'Enterprise', description: 'Solutions for scaling and optimization' },
-    { id: 'finance', name: 'Finance', description: 'Financial planning and management advice' },
-    { id: 'operations', name: 'Operations', description: 'Optimize workflows and processes' },
-    { id: 'hr', name: 'Human Resources', description: 'Talent management and team building' },
-    { id: 'product', name: 'Product Strategy', description: 'Product development and roadmap planning' },
-    { id: 'customer-success', name: 'Customer Success', description: 'Improve customer retention and satisfaction' },
-    { id: 'growth', name: 'Growth Strategy', description: 'Scaling and expansion strategies' },
-    { id: 'branding', name: 'Branding', description: 'Build and strengthen your brand identity' },
-    { id: 'ecommerce', name: 'E-Commerce', description: 'Online retail optimization strategies' },
-    { id: 'saas', name: 'SaaS', description: 'Software as a Service business models' },
-    { id: 'fundraising', name: 'Fundraising', description: 'Investment and funding strategies' },
-    { id: 'legal', name: 'Legal & Compliance', description: 'Business law and regulatory guidance' },
-    { id: 'technology', name: 'Technology', description: 'Tech stack and digital transformation' },
-    { id: 'analytics', name: 'Analytics', description: 'Data-driven decision making' },
-    { id: 'partnerships', name: 'Partnerships', description: 'Strategic alliances and collaborations' },
-    { id: 'international', name: 'International Expansion', description: 'Global market entry strategies' },
-    { id: 'sustainability', name: 'Sustainability', description: 'ESG and sustainable business practices' },
-  ];
 
   const cardsPerPage = 4;
   const totalPages = Math.ceil(advisorModes.length / cardsPerPage);
@@ -82,6 +60,54 @@ function HomePageContent() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Fetch advisor modes from database
+  useEffect(() => {
+    const fetchAdvisorModes = async () => {
+      // First try without is_global filter to see if data exists
+      const { data, error } = await supabaseBrowser
+        .from('advisor_modes')
+        .select('id, slug, name, description, is_global')
+        .order('created_at', { ascending: true });
+      
+      console.log('Fetched advisor modes:', data, error);
+      
+      if (!error && data) {
+        setAdvisorModes(data.map((mode: { slug: string; name: string; description: string | null }) => ({
+          id: mode.slug,
+          name: mode.name,
+          description: mode.description || '',
+        })));
+      } else if (error) {
+        console.error('Error fetching advisor modes:', error);
+      }
+    };
+
+    // Only fetch if not already loaded
+    if (advisorModes.length === 0) {
+      fetchAdvisorModes();
+    }
+
+    // Subscribe to changes in advisor_modes table
+    const subscription = supabaseBrowser
+      .channel('advisor_modes_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'advisor_modes',
+        },
+        () => {
+          fetchAdvisorModes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [advisorModes.length]);
 
   // Check for modal parameter in URL
   useEffect(() => {
@@ -273,7 +299,7 @@ function HomePageContent() {
         </nav>
 
         {/* Hero Section */}
-        <main className="flex-1 max-w-4xl mx-auto px-8 pt-12 pb-8 text-center">
+        <main className="py-8 max-w-4xl mx-auto px-8 text-center">
           
           {!hasStartedChat && 
             <>
