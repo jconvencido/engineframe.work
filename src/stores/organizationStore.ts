@@ -17,6 +17,8 @@ interface OrganizationState {
   setUserOrgs: (orgs: OrganizationWithRole[]) => void;
   switchOrganization: (orgId: string) => void;
   addOrganization: (org: OrganizationWithRole) => void;
+  updateOrganization: (orgId: string, updates: Partial<Organization>) => void;
+  removeOrganization: (orgId: string) => void;
   setLoading: (loading: boolean) => void;
   
   // Permission helpers
@@ -40,11 +42,20 @@ export const useOrganizationStore = create<OrganizationState>()(
         const state = get();
         set({ userOrgs: orgs });
         
-        // If current org is not set or not in the list, set the first one
-        if (!state.currentOrg || !orgs.find(o => o.id === state.currentOrg?.id)) {
-          if (orgs.length > 0) {
+        // If current org exists in the new list, update it with fresh data
+        if (state.currentOrg) {
+          const updatedCurrentOrg = orgs.find(o => o.id === state.currentOrg?.id);
+          if (updatedCurrentOrg) {
+            set({ currentOrg: updatedCurrentOrg });
+          } else if (orgs.length > 0) {
+            // Current org not found, set first one
             set({ currentOrg: orgs[0] });
+          } else {
+            set({ currentOrg: null });
           }
+        } else if (orgs.length > 0) {
+          // No current org, set the first one
+          set({ currentOrg: orgs[0] });
         }
       },
       
@@ -61,6 +72,37 @@ export const useOrganizationStore = create<OrganizationState>()(
         set({
           userOrgs: [...state.userOrgs, org],
           currentOrg: org,
+        });
+      },
+      
+      updateOrganization: (orgId, updates) => {
+        const state = get();
+        
+        // Update userOrgs array
+        const updatedOrgs = state.userOrgs.map(org => 
+          org.id === orgId ? { ...org, ...updates } : org
+        );
+        
+        // If the updated org is the current org, find the updated version from the array
+        let newCurrentOrg = state.currentOrg;
+        if (state.currentOrg?.id === orgId) {
+          newCurrentOrg = updatedOrgs.find(org => org.id === orgId) || state.currentOrg;
+        }
+        
+        set({ 
+          userOrgs: updatedOrgs,
+          currentOrg: newCurrentOrg
+        });
+      },
+      
+      removeOrganization: (orgId) => {
+        const state = get();
+        const filteredOrgs = state.userOrgs.filter(o => o.id !== orgId);
+        set({ 
+          userOrgs: filteredOrgs,
+          currentOrg: state.currentOrg?.id === orgId 
+            ? (filteredOrgs[0] || null) 
+            : state.currentOrg
         });
       },
       

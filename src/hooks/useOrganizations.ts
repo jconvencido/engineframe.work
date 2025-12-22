@@ -15,6 +15,8 @@ export function useOrganizations() {
     setLoading,
     switchOrganization,
     addOrganization,
+    updateOrganization: updateOrgInStore,
+    removeOrganization: removeOrgFromStore,
     canManageTeam,
     canCreateAnalysis,
     canInviteMembers,
@@ -129,6 +131,79 @@ export function useOrganizations() {
       return { success: false, error: err.message };
     }
   };
+
+  // Update an organization
+  const updateOrganization = async (orgId: string, data: { name: string }) => {
+    try {
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+      
+      const response = await fetch(`/api/organizations/${orgId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      
+      const result: ApiResponse<any> = await response.json();
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to update organization');
+      }
+      
+      // Update local state with all returned data from server
+      updateOrgInStore(orgId, { 
+        name: result.data.name,
+        updated_at: result.data.updated_at 
+      });
+      
+      return { success: true, data: result.data };
+    } catch (err: any) {
+      console.error('Error updating organization:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  // Delete an organization
+  const deleteOrganization = async (orgId: string) => {
+    try {
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+      
+      const response = await fetch(`/api/organizations/${orgId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      
+      const result: ApiResponse<any> = await response.json();
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete organization');
+      }
+      
+      // If deleted current org, switch to first available
+      if (currentOrg?.id === orgId && userOrgs.length > 1) {
+        const nextOrg = userOrgs.find(org => org.id !== orgId);
+        if (nextOrg) {
+          switchOrganization(nextOrg.id);
+        }
+      }
+      
+      await fetchOrganizations(); // Refresh list
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error deleting organization:', err);
+      return { success: false, error: err.message };
+    }
+  };
   
   // Subscribe to organization changes
   useEffect(() => {
@@ -172,6 +247,8 @@ export function useOrganizations() {
     isLoading,
     fetchOrganizations,
     createOrganization,
+    updateOrganization,
+    deleteOrganization,
     switchOrganization,
     canManageTeam,
     canCreateAnalysis,
