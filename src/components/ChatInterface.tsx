@@ -122,7 +122,7 @@ export default function ChatInterface({ selectedMode, disabled = false, onFirstM
     <div className="w-full">
       {/* Messages Area */}
       {messages.length > 0 && (
-        <div className="max-w-4xl mx-auto mb-8 space-y-6 max-h-[400px] overflow-y-auto px-4">
+        <div className="max-w-4xl mx-auto mb-8 space-y-6 max-h-[500px] overflow-y-auto px-4">
           {messages.map((message) => (
             <div key={message.id} className="space-y-4">
               {message.role === 'user' ? (
