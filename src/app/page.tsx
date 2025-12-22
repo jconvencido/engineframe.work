@@ -5,26 +5,41 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AuthModal from '@/components/AuthModal';
 import ChatInterface from '@/components/ChatInterface';
-import { supabaseBrowser } from '@/lib/supabaseClient';
-import { useOrganization } from '@/contexts/OrganizationContext';
-import type { User } from '@supabase/supabase-js';
+import { useAuth, useOrganizations, useAdvisorModes } from '@/hooks';
+import { useUIStore } from '@/stores';
 
 function HomePageContent() {
   const searchParams = useSearchParams();
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [orgMenuOpen, setOrgMenuOpen] = useState(false);
   const [selectedAdvisorMode, setSelectedAdvisorMode] = useState<string | null>(null);
-  const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [hasStartedChat, setHasStartedChat] = useState(false);
-  const [advisorModes, setAdvisorModes] = useState<Array<{ id: string; name: string; description: string }>>([]);
   
-  const { currentOrg, userOrgs, userRole, switchOrganization, canManageTeam, canCreateAnalysis } = useOrganization();
-
+  // Use custom hooks and stores
+  const { user, isLoading: authLoading, isEmailVerified, signOut } = useAuth();
+  const { 
+    currentOrg, 
+    userOrgs, 
+    switchOrganization, 
+    canManageTeam, 
+    canCreateAnalysis 
+  } = useOrganizations();
+  // Only pass organizationId if user is authenticated and has a current org
+  const { modes: advisorModes } = useAdvisorModes(user && currentOrg?.id ? currentOrg.id : null);
+  const {
+    authModalOpen,
+    authMode,
+    userMenuOpen,
+    orgMenuOpen,
+    modeDropdownOpen,
+    openAuthModal,
+    closeAuthModal,
+    switchAuthMode,
+    toggleUserMenu,
+    toggleOrgMenu,
+    toggleModeDropdown,
+    closeAllDropdowns,
+  } = useUIStore();
+console.log(currentOrg)
   const cardsPerPage = 4;
   const totalPages = Math.ceil(advisorModes.length / cardsPerPage);
   const currentModes = advisorModes.slice(
@@ -44,106 +59,22 @@ function HomePageContent() {
     }
   };
 
-  useEffect(() => {
-    // Check current auth status
-    supabaseBrowser.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabaseBrowser.auth.onAuthStateChange((_event: any, session: any) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Fetch advisor modes from database
-  useEffect(() => {
-    const fetchAdvisorModes = async () => {
-      // First try without is_global filter to see if data exists
-      const { data, error } = await supabaseBrowser
-        .from('advisor_modes')
-        .select('id, slug, name, description, is_global')
-        .order('created_at', { ascending: true });
-      
-      console.log('Fetched advisor modes:', data, error);
-      
-      if (!error && data) {
-        setAdvisorModes(data.map((mode: { slug: string; name: string; description: string | null }) => ({
-          id: mode.slug,
-          name: mode.name,
-          description: mode.description || '',
-        })));
-      } else if (error) {
-        console.error('Error fetching advisor modes:', error);
-      }
-    };
-
-    // Only fetch if not already loaded
-    if (advisorModes.length === 0) {
-      fetchAdvisorModes();
-    }
-
-    // Subscribe to changes in advisor_modes table
-    const subscription = supabaseBrowser
-      .channel('advisor_modes_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'advisor_modes',
-        },
-        () => {
-          fetchAdvisorModes();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [advisorModes.length]);
-
   // Check for modal parameter in URL
   useEffect(() => {
     const modal = searchParams.get('modal');
     if (modal === 'login') {
-      setAuthMode('login');
-      setAuthModalOpen(true);
+      openAuthModal('login');
     } else if (modal === 'signup') {
-      setAuthMode('signup');
-      setAuthModalOpen(true);
+      openAuthModal('signup');
     }
-  }, [searchParams]);
-
-  // Check email verification
-  const isEmailVerified = user?.email_confirmed_at != null;
+  }, [searchParams, openAuthModal]);
 
   const handleSignOut = async () => {
-    await supabaseBrowser.auth.signOut();
-    setUserMenuOpen(false);
+    await signOut();
+    closeAllDropdowns();
   };
 
-  const openLoginModal = () => {
-    setAuthMode('login');
-    setAuthModalOpen(true);
-  };
-
-  const openSignupModal = () => {
-    setAuthMode('signup');
-    setAuthModalOpen(true);
-  };
-
-  const switchAuthMode = () => {
-    setAuthMode(authMode === 'login' ? 'signup' : 'login');
-  };
-
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-gray-800 border-t-[#4169E1] rounded-full animate-spin"></div>
@@ -193,7 +124,7 @@ function HomePageContent() {
             {/* Organization Switcher */}
             <div className="relative">
               <button
-                onClick={() => setOrgMenuOpen(!orgMenuOpen)}
+                onClick={() => toggleOrgMenu()}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#111111] border border-gray-800 hover:border-gray-700 transition-colors text-sm font-medium cursor-pointer"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -209,7 +140,7 @@ function HomePageContent() {
                 <>
                   <div 
                     className="fixed inset-0 z-40" 
-                    onClick={() => setOrgMenuOpen(false)}
+                    onClick={() => closeAllDropdowns()}
                   />
                   <div className="absolute left-0 mt-2 w-64 bg-[#111111] border border-gray-800 rounded-lg shadow-lg py-2 z-50">
                     <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase">
@@ -220,7 +151,7 @@ function HomePageContent() {
                         key={org.id}
                         onClick={() => {
                           switchOrganization(org.id);
-                          setOrgMenuOpen(false);
+                          closeAllDropdowns();
                         }}
                         className={`w-full text-left px-4 py-2 text-sm hover:bg-[#0a0a0a] transition-colors flex items-center justify-between cursor-pointer ${currentOrg?.id === org.id ? 'bg-[#0a0a0a] text-[#4169E1]' : ''}`}
                       >
@@ -236,7 +167,7 @@ function HomePageContent() {
                     <Link
                       href="/organization/create"
                       className="block w-full text-left px-4 py-2 text-sm hover:bg-[#0a0a0a] transition-colors text-[#4169E1]"
-                      onClick={() => setOrgMenuOpen(false)}
+                      onClick={() => closeAllDropdowns()}
                     >
                       + Create Organization
                     </Link>
@@ -251,7 +182,7 @@ function HomePageContent() {
             <Link href="/" className="text-sm font-medium hover:text-gray-300 transition-colors">
               Pricing
             </Link>
-            {canManageTeam() && (
+            {currentOrg && canManageTeam() && (
               <Link href="/organization/team" className="text-sm font-medium hover:text-gray-300 transition-colors">
                 Team
               </Link>
@@ -259,7 +190,7 @@ function HomePageContent() {
           </div>
           <div className="relative">
             <button
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              onClick={() => toggleUserMenu()}
               className="flex items-center gap-2 hover:text-gray-300 transition-colors text-sm font-medium cursor-pointer"
             >
               <div className="w-7 h-7 rounded-full bg-[#4169E1] flex items-center justify-center text-xs font-medium">
@@ -272,7 +203,7 @@ function HomePageContent() {
               <>
                 <div 
                   className="fixed inset-0 z-40" 
-                  onClick={() => setUserMenuOpen(false)}
+                  onClick={() => closeAllDropdowns()}
                 />
                 <div className="absolute right-0 mt-2 w-56 bg-[#111111] border border-gray-800 rounded-lg shadow-lg py-2 z-50">
                   <div className="px-4 py-2 border-b border-gray-800">
@@ -282,7 +213,7 @@ function HomePageContent() {
                   <Link
                     href="/settings"
                     className="block w-full text-left px-4 py-2 text-sm hover:bg-[#0a0a0a] transition-colors"
-                    onClick={() => setUserMenuOpen(false)}
+                    onClick={() => closeAllDropdowns()}
                   >
                     Profile Settings
                   </Link>
@@ -334,8 +265,8 @@ function HomePageContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {currentModes.map((mode) => (
                   <button
-                    key={mode.id}
-                    onClick={() => setSelectedAdvisorMode(mode.id)}
+                    key={mode.slug}
+                    onClick={() => setSelectedAdvisorMode(mode.slug)}
                     className="bg-[#111111] border border-gray-800 rounded-2xl p-8 text-left hover:border-[#4169E1] hover:bg-[#111111]/80 transition-all cursor-pointer"
                   >
                     <h3 className="text-2xl font-bold mb-3">{mode.name}</h3>
@@ -372,13 +303,13 @@ function HomePageContent() {
           ) : (
             <div className="max-w-md mx-auto relative">
               <button
-                onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
+                onClick={() => toggleModeDropdown()}
                 className="w-full bg-[#111111] border border-[#4169E1] rounded-2xl p-6 text-left flex items-center justify-between hover:bg-[#111111]/80 transition-all cursor-pointer"
               >
                 <div>
                   <div className="text-sm text-gray-400 mb-1">Selected Advisor Mode</div>
                   <div className="text-xl font-bold">
-                    {advisorModes.find(m => m.id === selectedAdvisorMode)?.name}
+                    {advisorModes.find(m => m.slug === selectedAdvisorMode)?.name}
                   </div>
                 </div>
                 <svg
@@ -395,18 +326,18 @@ function HomePageContent() {
                 <>
                   <div 
                     className="fixed inset-0 z-40" 
-                    onClick={() => setModeDropdownOpen(false)}
+                    onClick={() => closeAllDropdowns()}
                   />
                   <div className="absolute max-h-60 overflow-auto top-full mt-2 w-full bg-[#111111] border border-gray-800 rounded-2xl shadow-lg py-2 z-50">
                     {advisorModes.map((mode) => (
                       <button
-                        key={mode.id}
+                        key={mode.slug}
                         onClick={() => {
-                          setSelectedAdvisorMode(mode.id);
-                          setModeDropdownOpen(false);
+                          setSelectedAdvisorMode(mode.slug);
+                          closeAllDropdowns();
                         }}
                         className={`w-full text-left px-6 py-4 hover:bg-[#0a0a0a] transition-colors cursor-pointer ${
-                          selectedAdvisorMode === mode.id ? 'bg-[#4169E1]/10' : ''
+                          selectedAdvisorMode === mode.slug ? 'bg-[#4169E1]/10' : ''
                         }`}
                       >
                         <div className="font-bold mb-1">{mode.name}</div>
@@ -449,7 +380,7 @@ function HomePageContent() {
           </Link>
         </div>
         <button
-          onClick={openLoginModal}
+          onClick={() => openAuthModal('login')}
           className="text-sm font-medium hover:text-gray-300 transition-colors cursor-pointer"
         >
           Sign In
@@ -469,60 +400,76 @@ function HomePageContent() {
           strategic insights and growth.
         </p>
         <button
-          onClick={openSignupModal}
+          onClick={() => openAuthModal('signup')}
           className="inline-block px-8 py-3 bg-[#4169E1] hover:bg-[#3557c7] text-white font-medium rounded-lg transition-colors cursor-pointer"
         >
           Get Started
         </button>
 
         {/* Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-16 max-w-3xl mx-auto">
-          {/* Sales Card */}
-          <div className="bg-[#111111] border border-gray-800 rounded-2xl p-8 text-left hover:border-gray-700 transition-colors">
-            <h3 className="text-2xl font-bold mb-3">Sales</h3>
-            <p className="text-gray-400">
-              Strategies for boosting sales
-              <br />
-              performance
-            </p>
+        <div className="relative mt-16 max-w-3xl mx-auto">
+          {/* Navigation Arrows */}
+          {totalPages > 1 && (
+            <>
+              <button
+                onClick={goToPrevPage}
+                disabled={currentPage === 0}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 w-10 h-10 rounded-full bg-[#111111] border border-gray-800 flex items-center justify-center hover:border-[#4169E1] transition-all disabled:opacity-30 disabled:cursor-not-allowed z-10 cursor-pointer"
+                aria-label="Previous page"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages - 1}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 w-10 h-10 rounded-full bg-[#111111] border border-gray-800 flex items-center justify-center hover:border-[#4169E1] transition-all disabled:opacity-30 disabled:cursor-not-allowed z-10 cursor-pointer"
+                aria-label="Next page"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {currentModes.map((mode) => (
+              <button
+                key={mode.slug}
+                onClick={() => openAuthModal('signup')}
+                className="bg-[#111111] border border-gray-800 rounded-2xl p-8 text-left hover:border-[#4169E1] transition-colors cursor-pointer"
+              >
+                <h3 className="text-2xl font-bold mb-3">{mode.name}</h3>
+                <p className="text-gray-400">{mode.description}</p>
+              </button>
+            ))}
           </div>
 
-          {/* Marketing Card */}
-          <div className="bg-[#111111] border border-gray-800 rounded-2xl p-8 text-left hover:border-gray-700 transition-colors">
-            <h3 className="text-2xl font-bold mb-3">Marketing</h3>
-            <p className="text-gray-400">
-              Insights to increase
-              <br />
-              marketing impact
-            </p>
-          </div>
-
-          {/* Startup Card */}
-          <div className="bg-[#111111] border border-gray-800 rounded-2xl p-8 text-left hover:border-gray-700 transition-colors">
-            <h3 className="text-2xl font-bold mb-3">Startup</h3>
-            <p className="text-gray-400">
-              Guidance on launching
-              <br />
-              new ventures
-            </p>
-          </div>
-
-          {/* Enterprise Card */}
-          <div className="bg-[#111111] border border-gray-800 rounded-2xl p-8 text-left hover:border-gray-700 transition-colors">
-            <h3 className="text-2xl font-bold mb-3">Enterprise</h3>
-            <p className="text-gray-400">
-              Solutions for scaling and
-              <br />
-              optimization
-            </p>
-          </div>
+          {/* Page Indicator */}
+          {totalPages > 1 && (
+            <div className="flex justify-center gap-2 mt-6">
+              {Array.from({ length: totalPages }).map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentPage(index)}
+                  className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
+                    index === currentPage ? 'bg-[#4169E1] w-6' : 'bg-gray-800'
+                  }`}
+                  aria-label={`Go to page ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </main>
 
       {/* Auth Modal */}
       <AuthModal
         isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
+        onClose={() => closeAuthModal()}
         mode={authMode}
         onSwitchMode={switchAuthMode}
       />
