@@ -14,10 +14,10 @@ import type { AcceptInvitationRequest } from '@/types';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { invitationId: string } }
+  { params }: { params: Promise<{ invitationId: string }> }
 ) {
   return withAuth(request, async (req, userId) => {
-    const { invitationId } = params;
+    const { invitationId } = await params;
     const supabase = await createSupabaseServerClient();
     
     // Get the invitation

@@ -10,9 +10,9 @@ import {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
-  const { token } = params;
+  const { token } = await params;
   const supabase = await createSupabaseServerClient();
   
   // Fetch invitation with organization details

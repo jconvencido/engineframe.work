@@ -13,10 +13,10 @@ import type { UpdateMemberRoleRequest } from '@/types';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { memberId: string } }
+  { params }: { params: Promise<{ memberId: string }> }
 ) {
   return withAuth(request, async (req, userId) => {
-    const { memberId } = params;
+    const { memberId } = await params;
     const body = await parseBody<UpdateMemberRoleRequest>(request);
     
     if (!body || !body.role) {
@@ -77,10 +77,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { memberId: string } }
+  { params }: { params: Promise<{ memberId: string }> }
 ) {
   return withAuth(request, async (req, userId) => {
-    const { memberId } = params;
+    const { memberId } = await params;
     const supabase = await createSupabaseServerClient();
     
     // Get the member being removed
