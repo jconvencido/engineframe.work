@@ -157,13 +157,17 @@ function HomePageContent() {
     // Messages are already displayed in the UI from local state
   };
 
-  const handleConversationForked = async (newConversationId: string) => {
-    // Simply update the conversation ID
-    // Messages are already in the ChatInterface state, no need to reload
+  const handleConversationForked = async (newConversationId: string, shouldReload: boolean = false) => {
+    // Set the conversation ID to select it
     setCurrentConversationId(newConversationId);
     
-    // Refresh conversation list to show the new forked conversation in sidebar
+    // Refresh conversation list to show the forked conversation in sidebar
     await fetchConversations();
+    
+    // Only reload if explicitly requested (after messages are saved)
+    if (shouldReload) {
+      await loadConversation(newConversationId);
+    }
   };
 
   if (authLoading) {
@@ -231,7 +235,7 @@ function HomePageContent() {
             {/* Sidebar Toggle Button */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-lg bg-[#111111] border border-gray-800 hover:border-gray-700 transition-colors"
+              className="lg:hidden p-2 rounded-lg bg-[#111111] border border-gray-800 hover:border-gray-700 transition-colors"
               aria-label="Toggle sidebar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

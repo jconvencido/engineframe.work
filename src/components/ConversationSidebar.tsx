@@ -73,7 +73,7 @@ export default function ConversationSidebar({
       {/* Sidebar */}
       <div
         className={`fixed h-[100dvh] lg:relative top-0 left-0 w-80 bg-[#111111] border-r border-gray-800 z-50 transform transition-transform duration-300 flex flex-col ${
-          isOpen ? 'translate-x-0' : '-translate-x-full hidden'
+          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Header */}

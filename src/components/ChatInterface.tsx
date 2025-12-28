@@ -36,7 +36,7 @@ interface ChatInterfaceProps {
   conversationOwnerId?: string | null;
   conversationTitle?: string;
   conversationIsShared?: boolean;
-  onConversationForked?: (newConversationId: string) => void;
+  onConversationForked?: (newConversationId: string, shouldReload?: boolean) => void;
 }
 
 export default function ChatInterface({ 
@@ -69,7 +69,7 @@ export default function ChatInterface({
     setCurrentConversationId(conversationId || null);
   }, [conversationId]);
 
-  // Load messages when conversation changes or when explicitly loading a conversation
+  // Load messages when conversation changes or when explicitly loading a conversation  
   useEffect(() => {
     if (conversationId && conversationMessages && conversationMessages.length > 0) {
       const uiMessages = conversationMessages.map(msg => ({
@@ -80,11 +80,8 @@ export default function ChatInterface({
       }));
       setMessages(uiMessages);
     } else if (!conversationId) {
-      // Only clear messages if there's no conversation at all
       setMessages([]);
     }
-    // If conversationId exists but conversationMessages is empty, keep current messages
-    // This handles the case where we fork and the parent hasn't reloaded yet
   }, [conversationId, conversationMessages]);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -130,17 +127,20 @@ export default function ChatInterface({
       const forkedConvId = result.conversation.id;
       setCurrentConversationId(forkedConvId);
       
-      // Keep current messages (they were already loaded from the original conversation)
-      // Don't reload - just continue with existing messages in state
-      
-      // Notify parent to update UI (but don't reload conversation)
+      // Notify parent to update sidebar (but don't reload yet)
       if (onConversationForked) {
-        onConversationForked(forkedConvId);
+        await onConversationForked(forkedConvId, false);
       }
-
+      
       // Send the pending message to the forked conversation
+      // This will save the message to the database
       await sendMessage(pendingMessage, forkedConvId);
       setPendingMessage(null);
+      
+      // Now reload to sync everything
+      if (onConversationForked) {
+        await onConversationForked(forkedConvId, true);
+      }
       
     } catch (err: any) {
       console.error('Error forking conversation:', err);
