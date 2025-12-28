@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AuthModal from '@/components/AuthModal';
 import ChatInterface from '@/components/ChatInterface';
@@ -16,6 +16,7 @@ function HomePageContent() {
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const previousOrgId = useRef<string | null>(null);
   
   // Use custom hooks and stores
   const { user, isLoading: authLoading, isEmailVerified, signOut } = useAuth();
@@ -89,9 +90,20 @@ function HomePageContent() {
   // Fetch conversations when organization changes
   useEffect(() => {
     if (user && currentOrg) {
+      // Check if organization actually changed
+      if (previousOrgId.current !== currentOrg.id) {
+        // Clear current conversation when switching organizations
+        setCurrentConversationId(null);
+        clearCurrentConversation();
+        setHasStartedChat(false);
+        
+        // Update the ref
+        previousOrgId.current = currentOrg.id;
+      }
+      
       fetchConversations();
     }
-  }, [user, currentOrg, fetchConversations]);
+  }, [user, currentOrg?.id]);
 
   const handleSignOut = async () => {
     await signOut();

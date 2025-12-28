@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { Conversation } from '@/types';
+import DeleteConversationModal from './DeleteConversationModal';
 
 interface ConversationSidebarProps {
   conversations: Conversation[];
@@ -26,6 +27,9 @@ export default function ConversationSidebar({
   onToggleShare,
   currentUserId,
 }: ConversationSidebarProps) {
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<{ id: string; title: string } | null>(null);
+
   // Group conversations by date
   const groupConversations = () => {
     const now = new Date();
@@ -60,8 +64,34 @@ export default function ConversationSidebar({
 
   const groupedConversations = groupConversations();
 
+  const handleDeleteClick = (conversationId: string, conversationTitle: string) => {
+    setConversationToDelete({ id: conversationId, title: conversationTitle });
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (conversationToDelete) {
+      onDeleteConversation(conversationToDelete.id);
+    }
+    setDeleteModalOpen(false);
+    setConversationToDelete(null);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false);
+    setConversationToDelete(null);
+  };
+
   return (
     <>
+      {/* Delete Confirmation Modal */}
+      <DeleteConversationModal
+        isOpen={deleteModalOpen}
+        conversationTitle={conversationToDelete?.title || ''}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
+
       {/* Overlay for mobile */}
       {isOpen && (
         <div
@@ -186,9 +216,7 @@ export default function ConversationSidebar({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (confirm('Delete this conversation?')) {
-                                    onDeleteConversation(conv.id);
-                                  }
+                                  handleDeleteClick(conv.id, conv.title);
                                 }}
                                 className="cursor-pointer p-1.5 hover:bg-red-500/20 rounded transition-colors text-red-400"
                                 title="Delete conversation"
