@@ -235,7 +235,7 @@ function HomePageContent() {
             {/* Sidebar Toggle Button */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 rounded-lg bg-[#111111] border border-gray-800 hover:border-gray-700 transition-colors"
+              className="cursor-pointer lg:hidden p-2 rounded-lg bg-[#111111] border border-gray-800 hover:border-gray-700 transition-colors"
               aria-label="Toggle sidebar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
