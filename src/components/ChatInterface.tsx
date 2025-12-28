@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState, useEffect } from 'react';
+import { FormEvent, useState, useEffect, useRef } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAnalyze, useConversations } from '@/hooks';
 import { useRouter } from 'next/navigation';
@@ -58,6 +58,9 @@ export default function ChatInterface({
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId || null);
   const [showForkModal, setShowForkModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { currentOrg, canCreateAnalysis } = useOrganization();
   const { analyze, isAnalyzing } = useAnalyze();
@@ -79,10 +82,39 @@ export default function ChatInterface({
         sections: msg.sections,
       }));
       setMessages(uiMessages);
+      
+      // Scroll to bottom when messages are loaded
+      setTimeout(() => scrollToBottom(), 100);
     } else if (!conversationId) {
       setMessages([]);
     }
   }, [conversationId, conversationMessages]);
+
+  // Scroll to bottom when new messages are added
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages.length]);
+
+  // Handle scroll to show/hide scroll button
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      setShowScrollButton(distanceFromBottom > 200);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [messages.length]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -277,46 +309,65 @@ export default function ChatInterface({
 
       {/* Messages Area */}
       {messages.length > 0 && (
-        <div className="max-w-4xl mx-auto mb-8 space-y-6 max-h-[500px] overflow-y-auto px-4">
-          {messages.map((message) => (
-            <div key={message.id} className="space-y-4">
-              {message.role === 'user' ? (
-                <div className="flex justify-end">
-                  <div className="max-w-[80%] bg-[#4169E1] text-white rounded-2xl px-6 py-4">
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+        <div className="relative">
+          <div 
+            ref={messagesContainerRef}
+            className="max-w-4xl mx-auto mb-8 space-y-6 max-h-[500px] overflow-y-auto px-4 scroll-smooth"
+          >
+            {messages.map((message) => (
+              <div key={message.id} className="space-y-4">
+                {message.role === 'user' ? (
+                  <div className="flex justify-end">
+                    <div className="max-w-[80%] bg-[#4169E1] text-white rounded-2xl px-6 py-4">
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="flex justify-start">
-                  <div className="max-w-[85%] space-y-3">
-                    {message.sections?.map((section, index) => (
-                      <div
-                        key={index}
-                        className="bg-[#111111] border border-gray-800 rounded-2xl p-6"
-                      >
-                        <h3 className="font-semibold text-[#4169E1] mb-3 text-lg">
-                          {section.section_name}
-                        </h3>
-                        <p className="text-gray-300 whitespace-pre-line leading-relaxed">
-                          {section.content}
-                        </p>
-                      </div>
-                    ))}
+                ) : (
+                  <div className="flex justify-start">
+                    <div className="max-w-[85%] space-y-3">
+                      {message.sections?.map((section, index) => (
+                        <div
+                          key={index}
+                          className="bg-[#111111] border border-gray-800 rounded-2xl p-6"
+                        >
+                          <h3 className="font-semibold text-[#4169E1] mb-3 text-lg">
+                            {section.section_name}
+                          </h3>
+                          <p className="text-gray-300 whitespace-pre-line leading-relaxed">
+                            {section.content}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
-          {isAnalyzing && (
-            <div className="flex justify-start">
-              <div className="bg-[#111111] border border-gray-800 rounded-2xl px-6 py-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                )}
+              </div>
+            ))}
+            {isAnalyzing && (
+              <div className="flex justify-start">
+                <div className="bg-[#111111] border border-gray-800 rounded-2xl px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Scroll to Bottom Button */}
+          {showScrollButton && (
+            <button
+              onClick={scrollToBottom}
+              className="cursor-pointer absolute bottom-4 right-1/2 bg-none hover:bg-[#3557c7] text-white p-3 border rounded-full shadow-lg transition-all duration-300 z-50"
+              aria-label="Scroll to bottom"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </button>
           )}
         </div>
       )}
