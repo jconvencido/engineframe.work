@@ -1,6 +1,6 @@
 // API request and response types
 
-import type { UserRole, Profile, Organization, OrganizationMember, AdvisorMode, Analysis } from './database';
+import type { UserRole, Profile, Organization, OrganizationMember, AdvisorMode, Analysis, Conversation, ConversationMessage } from './database';
 
 // Standard API response wrapper
 export interface ApiResponse<T = any> {
@@ -110,6 +110,34 @@ export interface AnalysisSection {
 export interface CreateAnalysisResponse {
   analysisId: string;
   sections: AnalysisSection[];
+}
+
+// Conversation API types
+export interface ConversationListResponse {
+  conversations: Conversation[];
+}
+
+export interface ConversationDetailResponse {
+  conversation: Conversation;
+  messages: ConversationMessage[];
+}
+
+export interface CreateConversationRequest {
+  organization_id: string;
+  advisor_mode_id: string;
+  title: string;
+  is_shared?: boolean;
+}
+
+export interface UpdateConversationRequest {
+  title?: string;
+  is_shared?: boolean;
+}
+
+export interface CreateMessageRequest {
+  role: 'user' | 'assistant';
+  content: string;
+  sections?: Array<{ section_name: string; content: string }>;
 }
 
 // Permission check types

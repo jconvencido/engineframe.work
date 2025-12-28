@@ -1,6 +1,7 @@
 // app/api/analyze/route.ts
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase-server';
+import { truncateConversationHistory } from '@/lib/conversation-utils';
 
 function parseAIResponse(response: string): Array<{ section_name: string; content: string }> {
   // Split response into sections based on numbered lists or headers
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
 
     const token = authHeader.slice('bearer '.length);
 
-    const { advisor_mode_id, prompt, organization_id } = await req.json();
+    const { advisor_mode_id, prompt, organization_id, conversation_history = [] } = await req.json();
 
     if (!advisor_mode_id || !prompt || !organization_id) {
       return new NextResponse('advisor_mode_id, prompt, and organization_id are required', {
@@ -130,7 +131,24 @@ export async function POST(req: Request) {
 
     let aiResponse: string;
     
+    // Truncate conversation history to most recent messages to reduce token costs
+    const truncatedHistory = truncateConversationHistory(conversation_history);
+    
     if (useAnthropic) {
+      // Build messages array from conversation history
+      const messages = [
+        ...truncatedHistory.map((msg: any) => ({
+          role: msg.role,
+          content: msg.role === 'user' 
+            ? msg.content 
+            : (msg.sections?.map((s: any) => `${s.section_name}:\n${s.content}`).join('\n\n') || msg.content)
+        })),
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ];
+
       // Anthropic Claude API call
       const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -143,12 +161,7 @@ export async function POST(req: Request) {
           model: 'claude-3-5-sonnet-20241022',
           max_tokens: 4096,
           system: systemPrompt,
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
+          messages: messages,
         }),
       });
 
@@ -161,6 +174,24 @@ export async function POST(req: Request) {
       const anthropicData = await anthropicResponse.json();
       aiResponse = anthropicData.content[0].text;
     } else {
+      // Build messages array from conversation history
+      const messages = [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        ...truncatedHistory.map((msg: any) => ({
+          role: msg.role,
+          content: msg.role === 'user' 
+            ? msg.content 
+            : (msg.sections?.map((s: any) => `${s.section_name}:\n${s.content}`).join('\n\n') || msg.content)
+        })),
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ];
+
       // OpenAI API call
       const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -170,16 +201,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           model: 'gpt-4-turbo-preview',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt,
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
+          messages: messages,
           temperature: 0.7,
           max_tokens: 4096,
         }),

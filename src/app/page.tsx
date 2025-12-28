@@ -5,7 +5,8 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AuthModal from '@/components/AuthModal';
 import ChatInterface from '@/components/ChatInterface';
-import { useAuth, useOrganizations, useAdvisorModes } from '@/hooks';
+import ConversationSidebar from '@/components/ConversationSidebar';
+import { useAuth, useOrganizations, useAdvisorModes, useConversations } from '@/hooks';
 import { useUIStore } from '@/stores';
 
 function HomePageContent() {
@@ -13,6 +14,8 @@ function HomePageContent() {
   const [selectedAdvisorMode, setSelectedAdvisorMode] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [hasStartedChat, setHasStartedChat] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   
   // Use custom hooks and stores
   const { user, isLoading: authLoading, isEmailVerified, signOut } = useAuth();
@@ -26,6 +29,20 @@ function HomePageContent() {
   } = useOrganizations();
   // Only pass organizationId if user is authenticated and has a current org
   const { modes: advisorModes } = useAdvisorModes(user && currentOrg?.id ? currentOrg.id : null);
+  
+  // Conversation management
+  const {
+    conversations,
+    currentConversation,
+    messages: conversationMessages,
+    fetchConversations,
+    createConversation,
+    loadConversation,
+    updateConversation,
+    deleteConversation,
+    clearCurrentConversation,
+  } = useConversations(currentOrg?.id);
+
   const {
     authModalOpen,
     authMode,
@@ -40,7 +57,6 @@ function HomePageContent() {
     toggleModeDropdown,
     closeAllDropdowns,
   } = useUIStore();
-console.log(currentOrg)
   const cardsPerPage = 4;
   const totalPages = Math.ceil(advisorModes.length / cardsPerPage);
   const currentModes = advisorModes.slice(
@@ -70,9 +86,84 @@ console.log(currentOrg)
     }
   }, [searchParams, openAuthModal]);
 
+  // Fetch conversations when organization changes
+  useEffect(() => {
+    if (user && currentOrg) {
+      fetchConversations();
+    }
+  }, [user, currentOrg, fetchConversations]);
+
   const handleSignOut = async () => {
     await signOut();
     closeAllDropdowns();
+  };
+
+  const handleNewChat = () => {
+    setCurrentConversationId(null);
+    clearCurrentConversation();
+    setSidebarOpen(false);
+  };
+
+  const handleSelectConversation = async (conversationId: string) => {
+    const result = await loadConversation(conversationId);
+    if (result.success && result.data) {
+      setCurrentConversationId(conversationId);
+      setSidebarOpen(false);
+      
+      // Set the advisor mode from the conversation
+      const conversation = result.data.conversation;
+      const mode = advisorModes.find(m => m.id === conversation.advisor_mode_id);
+      if (mode) {
+        setSelectedAdvisorMode(mode.slug);
+        setHasStartedChat(true);
+      }
+    }
+  };
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    await deleteConversation(conversationId);
+    if (conversationId === currentConversationId) {
+      handleNewChat();
+    }
+  };
+
+  const handleToggleShare = async (conversationId: string, isShared: boolean) => {
+    await updateConversation(conversationId, { is_shared: isShared });
+  };
+
+  const handleConversationCreated = async (title: string, modeSlug: string) => {
+    if (!currentOrg) return;
+    
+    const mode = advisorModes.find(m => m.slug === modeSlug);
+    if (!mode) return;
+
+    const result = await createConversation({
+      organization_id: currentOrg.id,
+      advisor_mode_id: mode.id,
+      title: title.slice(0, 50) + (title.length > 50 ? '...' : ''),
+      is_shared: false,
+    });
+
+    if (result.success && result.conversation) {
+      setCurrentConversationId(result.conversation.id);
+      return result.conversation.id;
+    }
+  };
+
+  const handleMessageSaved = async () => {
+    // Refresh the conversation list for the sidebar
+    await fetchConversations();
+    // Don't reload the current conversation - keep local state
+    // Messages are already displayed in the UI from local state
+  };
+
+  const handleConversationForked = async (newConversationId: string) => {
+    // Simply update the conversation ID
+    // Messages are already in the ChatInterface state, no need to reload
+    setCurrentConversationId(newConversationId);
+    
+    // Refresh conversation list to show the new forked conversation in sidebar
+    await fetchConversations();
   };
 
   if (authLoading) {
@@ -118,10 +209,36 @@ console.log(currentOrg)
     }
 
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col">
+      <div className="min-h-screen bg-[#0a0a0a] text-white flex">
+        {/* Conversation Sidebar */}
+        <ConversationSidebar
+          conversations={conversations}
+          currentConversationId={currentConversationId}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onSelectConversation={handleSelectConversation}
+          onNewChat={handleNewChat}
+          onDeleteConversation={handleDeleteConversation}
+          onToggleShare={handleToggleShare}
+          currentUserId={user?.id}
+        />
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col">
         {/* Navigation */}
         <nav className="max-w-6xl mx-auto w-full px-8 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-4">
+            {/* Sidebar Toggle Button */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-lg bg-[#111111] border border-gray-800 hover:border-gray-700 transition-colors"
+              aria-label="Toggle sidebar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
             {/* Organization Switcher */}
             <div className="relative">
               <button
@@ -369,9 +486,18 @@ console.log(currentOrg)
         <div className="border-t border-gray-800 bg-[#0a0a0a] px-4 py-6">
           <ChatInterface 
             selectedMode={selectedAdvisorMode} 
-            disabled={!selectedAdvisorMode} 
+            disabled={!selectedAdvisorMode}
             onFirstMessage={() => setHasStartedChat(true)}
+            conversationId={currentConversationId}
+            onConversationCreated={handleConversationCreated}
+            onMessageSaved={handleMessageSaved}
+            conversationMessages={conversationMessages}
+            conversationOwnerId={currentConversation?.user_id}
+            conversationTitle={currentConversation?.title}
+            conversationIsShared={currentConversation?.is_shared}
+            onConversationForked={handleConversationForked}
           />
+        </div>
         </div>
       </div>
     );

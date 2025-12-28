@@ -1,9 +1,12 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
-import { supabaseBrowser } from '@/lib/supabaseClient';
+import { FormEvent, useState, useEffect } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAnalyze, useConversations } from '@/hooks';
 import { useRouter } from 'next/navigation';
+import { truncateConversationHistory } from '@/lib/conversation-utils';
+import ForkConversationModal from './ForkConversationModal';
+import { useAuth } from '@/hooks';
 
 type OutputSection = {
   section_name: string;
@@ -21,105 +24,257 @@ interface ChatInterfaceProps {
   selectedMode?: string | null;
   disabled?: boolean;
   onFirstMessage?: () => void;
+  conversationId?: string | null;
+  onConversationCreated?: (title: string, modeSlug: string) => Promise<string | undefined>;
+  onMessageSaved?: () => void;
+  conversationMessages?: Array<{
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    sections?: OutputSection[];
+  }>;
+  conversationOwnerId?: string | null;
+  conversationTitle?: string;
+  conversationIsShared?: boolean;
+  onConversationForked?: (newConversationId: string) => void;
 }
 
-export default function ChatInterface({ selectedMode, disabled = false, onFirstMessage }: ChatInterfaceProps) {
+export default function ChatInterface({ 
+  selectedMode, 
+  disabled = false, 
+  onFirstMessage,
+  conversationId,
+  onConversationCreated,
+  onMessageSaved,
+  conversationMessages,
+  conversationOwnerId,
+  conversationTitle,
+  conversationIsShared,
+  onConversationForked,
+}: ChatInterfaceProps) {
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId || null);
+  const [showForkModal, setShowForkModal] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const router = useRouter();
   const { currentOrg, canCreateAnalysis } = useOrganization();
+  const { analyze, isAnalyzing } = useAnalyze();
+  const { addMessage, forkConversation } = useConversations(currentOrg?.id);
+  const { user } = useAuth();
+
+  // Update conversation ID when prop changes
+  useEffect(() => {
+    setCurrentConversationId(conversationId || null);
+  }, [conversationId]);
+
+  // Load messages when conversation changes or when explicitly loading a conversation
+  useEffect(() => {
+    if (conversationId && conversationMessages && conversationMessages.length > 0) {
+      const uiMessages = conversationMessages.map(msg => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        sections: msg.sections,
+      }));
+      setMessages(uiMessages);
+    } else if (!conversationId) {
+      // Only clear messages if there's no conversation at all
+      setMessages([]);
+    }
+    // If conversationId exists but conversationMessages is empty, keep current messages
+    // This handles the case where we fork and the parent hasn't reloaded yet
+  }, [conversationId, conversationMessages]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() || disabled) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input.trim(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
     const currentInput = input.trim();
+
+    // Check if user needs to fork (viewing shared conversation they don't own)
+    const needsFork = conversationId && 
+                     conversationOwnerId && 
+                     user?.id && 
+                     conversationOwnerId !== user.id &&
+                     conversationIsShared;
+
+    if (needsFork) {
+      // Store the message and show fork modal
+      setPendingMessage(currentInput);
+      setShowForkModal(true);
+      return;
+    }
+
+    // Continue with normal message flow
+    await sendMessage(currentInput);
+  };
+
+  const handleForkConfirm = async () => {
+    setShowForkModal(false);
+    
+    if (!conversationId || !pendingMessage) return;
+
+    try {
+      // Fork the conversation
+      const result = await forkConversation(conversationId);
+      
+      if (!result.success || !result.conversation) {
+        setError('Failed to fork conversation. Please try again.');
+        setPendingMessage(null);
+        return;
+      }
+
+      // Switch to the forked conversation
+      const forkedConvId = result.conversation.id;
+      setCurrentConversationId(forkedConvId);
+      
+      // Keep current messages (they were already loaded from the original conversation)
+      // Don't reload - just continue with existing messages in state
+      
+      // Notify parent to update UI (but don't reload conversation)
+      if (onConversationForked) {
+        onConversationForked(forkedConvId);
+      }
+
+      // Send the pending message to the forked conversation
+      await sendMessage(pendingMessage, forkedConvId);
+      setPendingMessage(null);
+      
+    } catch (err: any) {
+      console.error('Error forking conversation:', err);
+      setError('Failed to fork conversation. Please try again.');
+      setPendingMessage(null);
+    }
+  };
+
+  const handleForkCancel = () => {
+    setShowForkModal(false);
+    setPendingMessage(null);
+    // Restore the input
+    if (pendingMessage) {
+      setInput(pendingMessage);
+    }
+  };
+
+  const sendMessage = async (currentInput: string, targetConversationId?: string) => {
     setInput('');
-    setLoading(true);
     setError(null);
 
     // Check permissions
     if (!canCreateAnalysis()) {
       setError('You do not have permission to create analyses. Contact your organization admin.');
-      setLoading(false);
       return;
     }
 
     // Check organization
     if (!currentOrg) {
       setError('No organization selected. Please select or create an organization.');
-      setLoading(false);
+      return;
+    }
+
+    // Check advisor mode
+    if (!selectedMode) {
+      setError('Please select an advisor mode.');
       return;
     }
 
     // Trigger collapse to dropdown on first message
-    if (messages.length === 0 && onFirstMessage) {
+    const isFirstMessage = messages.length === 0;
+    if (isFirstMessage && onFirstMessage) {
       onFirstMessage();
     }
 
-    try {
-      // Get current session to extract access token
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabaseBrowser.auth.getSession();
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: currentInput,
+    };
 
-      if (sessionError || !session) {
-        setError('Session expired. Please log in again.');
-        router.push('/');
+    setMessages(prev => [...prev, userMessage]);
+
+    // Use target conversation ID if provided (for forked conversations)
+    let activeConversationId = targetConversationId || currentConversationId;
+    
+    // If we have a target conversation ID, update the current conversation ID
+    if (targetConversationId) {
+      setCurrentConversationId(targetConversationId);
+    }
+    
+    // Create conversation if this is the first message and no active conversation
+    if (!activeConversationId && isFirstMessage && onConversationCreated && selectedMode) {
+      try {
+        const newConvId = await onConversationCreated(currentInput, selectedMode);
+        if (newConvId) {
+          activeConversationId = newConvId;
+          setCurrentConversationId(newConvId);
+        }
+      } catch (err: any) {
+        console.error('Error creating conversation:', err);
+        setError('Failed to create conversation.');
+        setMessages(prev => prev.filter(m => m.id !== userMessage.id));
         return;
       }
+    }
 
-      const accessToken = session.access_token;
+    // Call the analyze hook with truncated conversation history
+    // Only send recent messages to reduce token costs, but keep full history in UI
+    const truncatedMessages = truncateConversationHistory(messages);
+    const result = await analyze(selectedMode, currentInput, currentOrg.id, truncatedMessages);
 
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          advisor_mode_id: selectedMode,
-          prompt: currentInput,
-          organization_id: currentOrg.id,
-        }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || 'Failed to analyze');
-      }
-
-      const data = await res.json();
-      
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: '',
-        sections: data.sections as OutputSection[],
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-    } catch (err: any) {
-      setError(err.message ?? 'Error occurred');
+    if (!result.success) {
+      setError(result.error || 'Failed to analyze');
       // Remove the user message if there was an error
       setMessages(prev => prev.filter(m => m.id !== userMessage.id));
-    } finally {
-      setLoading(false);
+      
+      // If session expired, redirect to login
+      if (result.error?.includes('Session expired')) {
+        router.push('/');
+      }
+      return;
+    }
+
+    const assistantMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant',
+      content: '',
+      sections: result.sections,
+    };
+
+    setMessages(prev => [...prev, assistantMessage]);
+
+    // Save messages to conversation
+    if (activeConversationId && addMessage) {
+      try {
+        // Save user message
+        await addMessage(activeConversationId, 'user', currentInput);
+
+        // Save assistant message
+        await addMessage(activeConversationId, 'assistant', '', result.sections);
+
+        // Reload conversation to sync with database
+        if (onMessageSaved) {
+          await onMessageSaved();
+        }
+      } catch (err) {
+        console.error('Error saving messages:', err);
+        // Don't show error to user, messages are still displayed
+      }
     }
   };
 
   return (
     <div className="w-full">
+      {/* Fork Conversation Modal */}
+      <ForkConversationModal
+        isOpen={showForkModal}
+        conversationTitle={conversationTitle || 'this conversation'}
+        messageCount={messages.length}
+        onConfirm={handleForkConfirm}
+        onCancel={handleForkCancel}
+      />
+
       {/* Messages Area */}
       {messages.length > 0 && (
         <div className="max-w-4xl mx-auto mb-8 space-y-6 max-h-[500px] overflow-y-auto px-4">
@@ -152,7 +307,7 @@ export default function ChatInterface({ selectedMode, disabled = false, onFirstM
               )}
             </div>
           ))}
-          {loading && (
+          {isAnalyzing && (
             <div className="flex justify-start">
               <div className="bg-[#111111] border border-gray-800 rounded-2xl px-6 py-4">
                 <div className="flex items-center gap-2">
@@ -175,15 +330,15 @@ export default function ChatInterface({ selectedMode, disabled = false, onFirstM
             onChange={e => setInput(e.target.value)}
             placeholder={disabled ? "Select an advisor mode to start..." : "Ask your business advisor anything..."}
             className="w-full rounded-2xl bg-[#111111] border border-gray-800 px-6 py-4 pr-14 text-white placeholder-gray-500 focus:outline-none focus:border-[#4169E1] focus:ring-1 focus:ring-[#4169E1] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={loading || disabled}
+            disabled={isAnalyzing || disabled}
           />
           <button
             type="submit"
-            disabled={!input.trim() || loading || disabled}
+            disabled={!input.trim() || isAnalyzing || disabled}
             className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-[#4169E1] hover:bg-[#3557c7] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             aria-label="Send message"
           >
-            {loading ? (
+            {isAnalyzing ? (
               <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

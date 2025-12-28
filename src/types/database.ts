@@ -74,6 +74,28 @@ export interface AnalysisOutput {
   created_at: string;
 }
 
+export interface Conversation {
+  id: string;
+  user_id: string;
+  organization_id: string;
+  advisor_mode_id: string;
+  title: string;
+  is_shared: boolean;
+  forked_from_conversation_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationMessage {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sections?: Array<{ section_name: string; content: string }>;
+  position: number;
+  created_at: string;
+}
+
 // Extended types with joins
 export interface OrganizationWithRole extends Organization {
   role: UserRole;
